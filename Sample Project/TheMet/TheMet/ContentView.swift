@@ -77,9 +77,7 @@ struct ContentView: View {
             TextField("Search the Met", text: $query)
             Button("Search") {
               Task {
-                do {
-                  try await store.fetchObjects(for: query)
-                } catch {}
+                await store.fetchObjects(for: query)
               }
             }
         }
@@ -97,9 +95,7 @@ struct ContentView: View {
       }
     }
     .task {
-      do {
-        try await store.fetchObjects(for: query)
-      } catch {}
+      await store.fetchObjects(for: query)
     }
   }
 }

@@ -32,25 +32,31 @@
 
 import Foundation
 
-actor TheMetService {
+class TheMetService {
   let baseURLString = "https://collectionapi.metmuseum.org/public/collection/v1/"
   let session = URLSession.shared
   let decoder = JSONDecoder()
 
-  func getObjectIDs(from queryTerm: String) async throws -> ObjectIDs? {
-    let objectIDs: ObjectIDs?  // 1
+  var objectIdsHandler: ((ObjectIDs) -> Void)?
+  var objectHandler: ((Object) -> Void)?
 
-    guard var urlComponents = URLComponents(string: baseURLString + "search") else {  // 2
+  func getObjectIDs(from queryTerm: String) async throws -> ObjectIDs? {
+    let objectIDs: ObjectIDs?
+
+    guard var urlComponents = URLComponents(string: baseURLString + "search") else {
       return nil
     }
     let baseParams = ["hasImages": "true"]
     urlComponents.setQueryItems(with: baseParams)
+
+    let term = queryTerm.isEmpty ? "the" : queryTerm
     // swiftlint:disable:next force_unwrapping
-    urlComponents.queryItems! += [URLQueryItem(name: "q", value: queryTerm)]
+    urlComponents.queryItems! += [URLQueryItem(name: "q", value: term)]
+
     guard let queryURL = urlComponents.url else { return nil }
     let request = URLRequest(url: queryURL)
 
-    let (data, response) = try await session.data(for: request)  // 1
+    let (data, response) = try await session.data(for: request)
     guard
       let response = response as? HTTPURLResponse,
       (200..<300).contains(response.statusCode)
@@ -59,23 +65,89 @@ actor TheMetService {
       return nil
     }
 
-    do {  // 2
+    do {
       objectIDs = try decoder.decode(ObjectIDs.self, from: data)
     } catch {
       print(error)
       return nil
     }
-    return objectIDs  // 3
+    return objectIDs
+  }
+
+  func getObjectIDs(from queryTerm: String) {
+    guard var urlComponents = URLComponents(string: baseURLString + "search") else {
+      return
+    }
+
+    let baseParams = ["hasImages": "true"]
+    urlComponents.setQueryItems(with: baseParams)
+    // swiftlint:disable:next force_unwrapping
+    urlComponents.queryItems! += [URLQueryItem(name: "q", value: queryTerm)]
+
+    guard let queryURL = urlComponents.url else {
+      return
+    }
+
+    session.dataTask(with: URLRequest(url: queryURL)) { data, response, _ in
+      guard
+        let response = response as? HTTPURLResponse,
+        (200..<300).contains(response.statusCode)
+      else {
+        print(">>> getObjectIDs response outside bounds")
+        return
+      }
+
+      if let data = data {
+        var objectIDs: ObjectIDs?
+        do {
+          objectIDs = try self.decoder.decode(ObjectIDs.self, from: data)
+        } catch {
+          print(">>> Unable to decode objectIds")
+          return
+        }
+
+        if let objectIDs = objectIDs {
+          self.objectIdsHandler?(objectIDs)
+        }
+      }
+    }
+  }
+
+  func getObject(from objectID: Int) {
+    let objectURLString = baseURLString + "objects/\(objectID)"
+    guard let objectURL = URL(string: objectURLString) else {
+      return
+    }
+    let objectRequest = URLRequest(url: objectURL)
+
+    session.dataTask(with: objectRequest) { data, response, _ in
+      if let response = response as? HTTPURLResponse {
+        let statusCode = response.statusCode
+        if !(200..<300).contains(statusCode) {
+          print(">>> getObject response \(statusCode) outside bounds")
+          print(">>> \(objectURLString)")
+        }
+      }
+
+      if let data = data {
+        do {
+          let object = try self.decoder.decode(Object.self, from: data)
+          self.objectHandler?(object)
+        } catch let error {
+          print(">>> Unable to decode object \(error)")
+        }
+      }
+    }
   }
 
   func getObject(from objectID: Int) async throws -> Object? {
-    let object: Object?  // 1
+    let object: Object?
 
-    let objectURLString = baseURLString + "objects/\(objectID)"  // 2
+    let objectURLString = baseURLString + "objects/\(objectID)"
     guard let objectURL = URL(string: objectURLString) else { return nil }
     let objectRequest = URLRequest(url: objectURL)
 
-    let (data, response) = try await session.data(for: objectRequest)  // 3
+    let (data, response) = try await session.data(for: objectRequest)
     if let response = response as? HTTPURLResponse {
       let statusCode = response.statusCode
       if !(200..<300).contains(statusCode) {
@@ -85,12 +157,12 @@ actor TheMetService {
       }
     }
 
-    do {  // 4
+    do {
       object = try decoder.decode(Object.self, from: data)
     } catch {
       print(error)
       return nil
     }
-    return object  // 5
+    return object
   }
 }

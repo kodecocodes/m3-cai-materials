@@ -35,21 +35,38 @@ import Foundation
 @MainActor
 class TheMetStore: ObservableObject {
   @Published var objects: [Object] = []
+
   let service = TheMetService()
+
   let maxIndex: Int
 
   init(_ maxIndex: Int = 30) {
     self.maxIndex = maxIndex
   }
 
-  func fetchObjects(for queryTerm: String) async throws {
-    if let objectIDs = try await service.getObjectIDs(from: queryTerm) {  // 1
-      for (index, objectID) in objectIDs.objectIDs.enumerated()  // 2
-      where index < maxIndex {
-        if let object = try await service.getObject(from: objectID) {
-          objects.append(object)
+  func fetchObjects(for queryTerm: String) async {
+    do {
+      let newObjects = try await withThrowingTaskGroup(of: Object?.self, returning: [Object].self) { taskGroup in
+        if let objectIds = try await self.service.getObjectIDs(from: queryTerm) {
+          for (index, objectID) in objectIds.objectIDs.enumerated() where index < self.maxIndex {
+            taskGroup.addTask {
+              return try await self.service.getObject(from: objectID)
+            }
+          }
+        }
+
+        // Don't worry about data races warning.
+        // This will be fixed: https://forums.swift.org/t/use-withthrowingtaskgroup-within-actor-leads-to-non-sendable-type-inout-throwingtaskgroup-void-any-error-async-throws-compilation-warning/60271/12
+        return try await taskGroup.reduce(into: [Object]()) { partialResult, object in
+          if let object = object {
+            partialResult.append(object)
+          }
         }
       }
+
+      objects.append(contentsOf: newObjects)
+    } catch let error {
+      print("Failed to retrieve objects \(error)")
     }
   }
 }
