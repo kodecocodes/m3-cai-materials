@@ -41,8 +41,8 @@ class TheMetStore: ObservableObject {
     self.maxIndex = maxIndex
   }
 
+  @MainActor
   func fetchObjects(for queryTerm: String) async throws {
-    
     let newObjects = try await withThrowingTaskGroup(of: Object?.self, returning: [Object].self) { taskGroup in
       if let objectIds = try await self.service.getObjectIDs(from: queryTerm) {
         for (index, objectID) in objectIds.objectIDs.enumerated() where index < self.maxIndex {
@@ -51,25 +51,14 @@ class TheMetStore: ObservableObject {
           }
         }
       }
-
+      
       return try await taskGroup.reduce(into: [Object]()) { partialResult, object in
         if let object = object {
           partialResult.append(object)
         }
       }
     }
-
-    objects.append(contentsOf: newObjects)
     
-//    if let objectIDs = try await service.getObjectIDs(from: queryTerm) {  // 1
-//      for (index, objectID) in objectIDs.objectIDs.enumerated()  // 2
-//      where index < maxIndex {
-//        if let object = try await service.getObject(from: objectID) {
-//          await MainActor.run {
-//            objects.append(object)
-//          }
-//        }
-//      }
-//    }
+    objects.append(contentsOf: newObjects)
   }
 }
