@@ -41,7 +41,6 @@ class TheMetStore: ObservableObject {
     self.maxIndex = maxIndex
   }
 
-  @MainActor
   func fetchObjects(for queryTerm: String) async throws {
     if let objectIDs = try await service.getObjectIDs(from: queryTerm) {  // 1
       for (index, objectID) in objectIDs.objectIDs.enumerated()  // 2
