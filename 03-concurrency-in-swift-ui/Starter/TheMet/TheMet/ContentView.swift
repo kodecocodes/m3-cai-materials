@@ -100,11 +100,6 @@ struct ContentView: View {
         if store.objects.isEmpty { ProgressView() }
       }
     }
-    .task {
-      do {
-        try await store.fetchObjects(for: query)
-      } catch {}
-    }
   }
 }
 
