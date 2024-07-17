@@ -1,4 +1,4 @@
-/// Copyright (c) 2024 Kodeco LLC
+/// Copyright (c) 2023 Kodeco LLC
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -30,22 +30,14 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 /// THE SOFTWARE.
 
-import SwiftUI
-import SafariServices
+import Foundation
 
-struct SafariView: UIViewControllerRepresentable {
-  let url: URL
-
-  func makeUIViewController(context: UIViewControllerRepresentableContext<SafariView>) -> SFSafariViewController {
-    return SFSafariViewController(url: url)
-  }
-
-  func updateUIViewController(_ uiViewController: SFSafariViewController, context: UIViewControllerRepresentableContext<SafariView>) {}
-}
-
-struct SafariView_Previews: PreviewProvider {
-  static var previews: some View {
-    // swiftlint:disable:next force_unwrapping
-    SafariView(url: URL(string: "https://www.metmuseum.org/art/collection/search/437092")!)
+public extension URLComponents {
+  /// Maps a dictionary into `[URLQueryItem]` then assigns it to the
+  /// `queryItems` property of this `URLComponents` instance.
+  /// From [Alfian Losari's blog.](https://www.alfianlosari.com/posts/building-safe-url-in-swift-using-urlcomponents-and-urlqueryitem/)
+  /// - Parameter parameters: Dictionary of query parameter names and values
+  mutating func setQueryItems(with parameters: [String: String]) {
+    self.queryItems = parameters.map { URLQueryItem(name: $0.key, value: $0.value) }
   }
 }

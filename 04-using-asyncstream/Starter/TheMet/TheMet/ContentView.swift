@@ -1,4 +1,4 @@
-/// Copyright (c) 2024 Kodeco LLC
+/// Copyright (c) 2023 Kodeco LLC
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -33,9 +33,13 @@
 import SwiftUI
 
 struct ContentView: View {
-  @StateObject private var store = TheMetStore()
+  
   @State private var query = "rhino"
   @State private var showQueryField = false
+  @State private var fetchObjectsTask: Task<Void, Error>?
+  @State var objects: [Object] = []
+  
+  private var store = TheMetStore()
 
   var body: some View {
     NavigationStack {
@@ -44,7 +48,7 @@ struct ContentView: View {
           .padding(5)
           .background(Color.metForeground)
           .cornerRadius(10)
-        List(store.objects, id: \.objectID) { object in
+        List(objects, id: \.objectID) { object in
           if !object.isPublicDomain,
             let url = URL(string: object.objectURL) {
             NavigationLink(value: url) {
@@ -73,14 +77,19 @@ struct ContentView: View {
         }
         .alert(
           "Search the Met",
-          isPresented: $showQueryField) {
+          isPresented: $showQueryField,
+          actions: {
             TextField("Search the Met", text: $query)
             Button("Search") {
-              Task {
-                await store.fetchObjects(for: query)
+              fetchObjectsTask?.cancel()
+              fetchObjectsTask = Task {
+                do {
+                  objects = []
+                  try await store.fetchObjects(for: query)
+                } catch {}
               }
             }
-        }
+          })
         .navigationDestination(for: URL.self) { url in
           SafariView(url: url)
             .navigationBarTitleDisplayMode(.inline)
@@ -91,11 +100,18 @@ struct ContentView: View {
         }
       }
       .overlay {
-        if store.objects.isEmpty { ProgressView() }
+        if objects.isEmpty { ProgressView() }
       }
     }
     .task {
-      await store.fetchObjects(for: query)
+      do {
+        try await store.fetchObjects(for: query)
+      } catch {}
+    }
+    .onAppear {
+      store.newObjectsHandler = { newObjects in
+        objects.append(contentsOf: newObjects)
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-/// Copyright (c) 2024 Kodeco LLC
+/// Copyright (c) 2023 Kodeco LLC
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -32,41 +32,30 @@
 
 import Foundation
 
-@MainActor
-class TheMetStore: ObservableObject {
-  @Published var objects: [Object] = []
-
-  let service = TheMetService()
-
+class TheMetStore {
+  var newObjectsHandler: (([Object]) -> ())?
+  let service: TheMetService = TheMetService()
   let maxIndex: Int
-
-  init(_ maxIndex: Int = 30) {
+  
+  init(_ maxIndex: Int = 30, newObjectsHandler: (([Object]) -> ())? = nil) {
     self.maxIndex = maxIndex
+    self.newObjectsHandler = newObjectsHandler
   }
 
-  func fetchObjects(for queryTerm: String) async {
-    do {
-      let newObjects = try await withThrowingTaskGroup(of: Object?.self, returning: [Object].self) { taskGroup in
-        if let objectIds = try await self.service.getObjectIDs(from: queryTerm) {
-          for (index, objectID) in objectIds.objectIDs.enumerated() where index < self.maxIndex {
-            taskGroup.addTask {
-              return try await self.service.getObject(from: objectID)
-            }
-          }
-        }
-
-        // Don't worry about data races warning.
-        // This will be fixed: https://forums.swift.org/t/use-withthrowingtaskgroup-within-actor-leads-to-non-sendable-type-inout-throwingtaskgroup-void-any-error-async-throws-compilation-warning/60271/12
-        return try await taskGroup.reduce(into: [Object]()) { partialResult, object in
-          if let object = object {
-            partialResult.append(object)
-          }
+  func fetchObjects(for queryTerm: String) async throws {
+    if let objectIDs = try await service.getObjectIDs(from: queryTerm) {  // 1
+      
+      var returnedObjects: [Object] = []
+      for (index, objectID) in objectIDs.objectIDs.enumerated()  // 2
+      where index < maxIndex {
+        if let object = try await service.getObject(from: objectID) {
+          returnedObjects.append(object)
         }
       }
-
-      objects.append(contentsOf: newObjects)
-    } catch let error {
-      print("Failed to retrieve objects \(error)")
+      
+      if(newObjectsHandler != nil) {
+        newObjectsHandler?(returnedObjects)
+      }
     }
   }
 }
