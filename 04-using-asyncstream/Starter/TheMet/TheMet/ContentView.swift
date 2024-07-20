@@ -109,8 +109,8 @@ struct ContentView: View {
       } catch {}
     }
     .onAppear {
-      store.newObjectsHandler = { newObjects in
-        objects.append(contentsOf: newObjects)
+      store.newObjectsHandler = { newObject in
+        objects.append(newObject)
       }
     }
   }

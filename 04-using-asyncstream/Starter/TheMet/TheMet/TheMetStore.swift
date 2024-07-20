@@ -33,28 +33,23 @@
 import Foundation
 
 class TheMetStore {
-  var newObjectsHandler: (([Object]) -> ())?
+  var newObjectsHandler: ((Object) -> ())?
   let service: TheMetService = TheMetService()
   let maxIndex: Int
   
-  init(_ maxIndex: Int = 30, newObjectsHandler: (([Object]) -> ())? = nil) {
+  init(_ maxIndex: Int = 30, newObjectsHandler: ((Object) -> ())? = nil) {
     self.maxIndex = maxIndex
     self.newObjectsHandler = newObjectsHandler
   }
 
   func fetchObjects(for queryTerm: String) async throws {
-    if let objectIDs = try await service.getObjectIDs(from: queryTerm) {  // 1
+    if let objectIDs = try await service.getObjectIDs(from: queryTerm) {
       
-      var returnedObjects: [Object] = []
-      for (index, objectID) in objectIDs.objectIDs.enumerated()  // 2
+      for (index, objectID) in objectIDs.objectIDs.enumerated()
       where index < maxIndex {
         if let object = try await service.getObject(from: objectID) {
-          returnedObjects.append(object)
+          newObjectsHandler?(object)
         }
-      }
-      
-      if(newObjectsHandler != nil) {
-        newObjectsHandler?(returnedObjects)
       }
     }
   }
