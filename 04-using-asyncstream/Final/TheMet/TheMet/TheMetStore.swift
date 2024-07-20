@@ -33,53 +33,31 @@
 import Foundation
 
 class TheMetStore {
-  var newObjectsHandler: (([Object]) -> ())?
   let service: TheMetService = TheMetService()
   let maxIndex: Int
-    
-  init(_ maxIndex: Int = 30, newObjectsHandler: (([Object]) -> ())? = nil) {
+  
+  init(_ maxIndex: Int = 30) {
     self.maxIndex = maxIndex
-    self.newObjectsHandler = newObjectsHandler
-  }
-
-  func fetchObjects(for queryTerm: String) async throws {
-    if let objectIDs = try await service.getObjectIDs(from: queryTerm) {  // 1
-      
-      var returnedObjects: [Object] = []
-      for (index, objectID) in objectIDs.objectIDs.enumerated()  // 2
-      where index < maxIndex {
-        if let object = try await service.getObject(from: objectID) {
-          returnedObjects.append(object)
-        }
-      }
-      
-      if(newObjectsHandler != nil) {
-        newObjectsHandler?(returnedObjects)
-      }
-    }
   }
   
-  func fetchObjects(for queryTerm: String) -> AsyncStream<[Object]> {
+  func fetchObjects(for queryTerm: String) -> AsyncStream<Object> {
     
     return AsyncStream { continuation in
       let task = Task {
-        if let objectIDs = try await self.service.getObjectIDs(from: queryTerm) {  // 1
+        if let objectIDs = try await self.service.getObjectIDs(from: queryTerm) {
           
-          var returnedObjects: [Object] = []
-          for (index, objectID) in objectIDs.objectIDs.enumerated()  // 2
+          for (index, objectID) in objectIDs.objectIDs.enumerated()
           where index < self.maxIndex {
             if let object = try await self.service.getObject(from: objectID) {
-              returnedObjects.append(object)
+              continuation.yield(object)
             }
           }
-          
-          continuation.yield(returnedObjects)
         }
       }
       
       continuation.onTermination = { _ in
-         print("Task is cancelled")
-         task.cancel()
+        print("Task is cancelled")
+        task.cancel()
       }
     }
   }

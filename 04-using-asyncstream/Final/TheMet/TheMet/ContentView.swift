@@ -86,7 +86,7 @@ struct ContentView: View {
                 do {
                   objects = []
                   for await object in store.fetchObjects(for: query) {
-                    objects.append(contentsOf: object)
+                    objects.append(object)
                   }
                 }
               }
@@ -108,7 +108,7 @@ struct ContentView: View {
     .task {
       do {
         for await object in store.fetchObjects(for: query) {
-          objects.append(contentsOf: object)
+          objects.append(object)
         }
       }
     }
