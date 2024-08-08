@@ -51,12 +51,13 @@ import Foundation
           }
         }
       }
-      
-      return try await taskGroup.reduce(into: [Object]()) { partialResult, object in
-        if let object = object {
-          partialResult.append(object)
+      var results = [Object]()
+      for try await result in taskGroup {
+        if let object = result {
+          results.append(object)
         }
       }
+      return results
     }
     
     objects.append(contentsOf: newObjects)
